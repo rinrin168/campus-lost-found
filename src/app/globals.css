@@ -1,5 +1,6 @@
-
-@import "tailwindcss";
+/* src/app/globals.css */
+@import "tailwindcss/preflight";
+@import "tailwindcss/utilities";
 
 :root {
   --purple-dark: #4a3780;
@@ -10,11 +11,10 @@
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background-color: var(--purple-dark);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--purple-lighter);
 }
 
-/* Optional: Add smooth scrolling */
 html {
   scroll-behavior: smooth;
 }
