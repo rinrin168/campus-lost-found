@@ -1,19 +1,19 @@
 // src/app/layout.tsx
-import type { Metadata } from "next";
 import "./globals.css";
 
-export const metadata: Metadata = {
+export const metadata = {
   title: "Campus Lost & Found",
-  description:
-    "Helping campus belongings find their way back! Report lost items, post found items, and reunite them with their owners.",
+  description: "Campus Lost & Found",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-[var(--purple-lighter)] antialiased">
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
