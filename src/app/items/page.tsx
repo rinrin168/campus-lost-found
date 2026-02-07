@@ -22,27 +22,30 @@ export default function ItemsPage() {
       location: "Room 12",
       date: "21/01/2026",
       description: "Found on the floor, bottle is green and have initial S.R",
-      userId: "user:roth234"
+      userId: "user:roth234",
+      image: "/images/water-bottle.jpg"
     },
     {
       id: 2,
-      reporter: "Roth",
-      email: "roth106@gmail.com",
-      item: "Water Bottle",
+      reporter: "A",
+      email: "a@example.com",
+      item: "Phone",
       location: "Room 12",
       date: "21/01/2026",
       description: "Found on the floor, bottle is green and have initial S.R",
-      userId: "user:roth234"
+      userId: "user:a123",
+      image: "/images/phone.jpg"
     },
     {
       id: 3,
-      reporter: "Roth",
-      email: "roth106@gmail.com",
+      reporter: "B",
+      email: "b@example.com",
       item: "Water Bottle",
       location: "Room 12",
       date: "21/01/2026",
       description: "Found on the floor, bottle is green and have initial S.R",
-      userId: "user:roth234"
+      userId: "user:b456",
+      image: "/images/water-bottle.jpg"
     }
   ];
 
@@ -50,10 +53,10 @@ export default function ItemsPage() {
     <div className="min-h-screen px-6 py-10 bg-[color:var(--purple-lighter)]">
       <div className="mx-auto max-w-6xl">
         <div className="flex items-center justify-between mb-8">
-          <Link href="/landing" className="font-semibold text-[color:var(--purple-dark)] flex items-center">
-            ← Back
+          <Link href="/" className="font-semibold text-[color:var(--purple-dark)] flex items-center">
+            ← Home
           </Link>
-          <Link href="/report" className="font-semibold text-[color:var(--purple-dark)] flex items-center">
+          <Link href="/item/new" className="font-semibold text-[color:var(--purple-dark)] flex items-center">
             <span className="bg-[color:var(--purple-dark)] text-white rounded-full w-6 h-6 flex items-center justify-center mr-2">+</span>
             Report
           </Link>
@@ -70,8 +73,14 @@ export default function ItemsPage() {
                 <div className="flex flex-col md:flex-row">
                   {/* Image Column */}
                   <div className="w-full md:w-32 mb-4 md:mb-0 flex items-center justify-center">
-                    <div className="bg-[color:var(--purple-light)] w-24 h-24 rounded-xl flex items-center justify-center">
-                      <span className="text-[color:var(--purple-dark)] font-bold text-xl">B</span>
+                    <div className="bg-[color:var(--purple-light)] w-24 h-24 rounded-xl overflow-hidden">
+                      <img 
+                        src={item.image} 
+                        alt={item.item}
+                        className="object-cover w-full h-full"
+                        width={96}
+                        height={96}
+                      />
                     </div>
                   </div>
                   

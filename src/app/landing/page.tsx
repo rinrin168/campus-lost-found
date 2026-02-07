@@ -17,6 +17,45 @@ export default function LandingPage() {
     router.push("/login");
   }
 
+  // Sample items data
+  const items = [
+    {
+      id: 1,
+      name: "Water Bottle",
+      location: "Found on floor in Room 101",
+      date: "27/03/2023",
+      image: "/images/water-bottle.jpg"
+    },
+    {
+      id: 2,
+      name: "Laptop",
+      location: "Found in Library",
+      date: "28/03/2023",
+      image: "/images/laptop.jpg"
+    },
+    {
+      id: 3,
+      name: "Backpack",
+      location: "Found in Cafeteria",
+      date: "29/03/2023",
+      image: "/images/back-pack.jpg"
+    },
+    {
+      id: 4,
+      name: "Keys",
+      location: "Found in Hallway",
+      date: "30/03/2023",
+      image: "/images/key.jpg"
+    },
+    {
+      id: 5,
+      name: "Phone",
+      location: "Found in Classroom",
+      date: "31/03/2023",
+      image: "/images/phone.jpg"
+    }
+  ];
+
   return (
     <main className="min-h-screen bg-purple-50 overflow-y-auto">
       {/* Header */}
@@ -32,7 +71,8 @@ export default function LandingPage() {
             <Link href="/" className="text-gray-700 hover:text-purple-600 font-medium">Home</Link>
             <Link href="/report" className="text-gray-700 hover:text-purple-600 font-medium">Report</Link>
             <Link href="/items" className="text-gray-700 hover:text-purple-600 font-medium">Items</Link>
-            <Link href="/about" className="text-gray-700 hover:text-purple-600 font-medium">About</Link>
+            {/* "Profile" */}
+            <Link href="/profile" className="text-gray-700 hover:text-purple-600 font-medium">Profile</Link>
             <button 
               onClick={logout} 
               className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors"
@@ -46,6 +86,25 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="max-w-7xl mx-auto px-4 py-12">
         <div className="flex flex-col md:flex-row items-center">
+          {/* Picture on Left */}
+          <div className="md:w-1/2 flex justify-center mb-8 md:mb-0">
+            <div className="bg-purple-100 p-4 rounded-2xl w-full max-w-md">
+              <div className="bg-white rounded-xl p-4 shadow-md">
+                <div className="flex justify-center mb-4">
+                  <div className="w-48 h-48 rounded-lg overflow-hidden">
+                    <img src="/images/photo5.jpg"/>
+                  </div>
+                </div>
+                <div className="grid grid-cols-5 gap-2">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="bg-gray-200 rounded h-12"></div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Text on Right */}
           <div className="md:w-1/2 mb-8 md:mb-0">
             <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
               "Lost it? Don't worry— For we are the campus detectives"
@@ -61,22 +120,6 @@ export default function LandingPage() {
               Explore More →
             </Link>
           </div>
-          <div className="md:w-1/2 flex justify-center">
-            <div className="bg-purple-100 p-4 rounded-2xl w-full max-w-md">
-              <div className="bg-white rounded-xl p-4 shadow-md">
-                <div className="flex justify-center mb-4">
-                  <div className="w-48 h-48 bg-gray-200 rounded-lg flex items-center justify-center">
-                    <span className="text-gray-500">Illustration</span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-5 gap-2">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="bg-gray-200 rounded h-12"></div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -84,17 +127,24 @@ export default function LandingPage() {
       <section className="max-w-7xl mx-auto px-4 py-12">
         <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Lost & Found Items List</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="bg-white rounded-xl shadow-md overflow-hidden">
-              <div className="bg-gray-200 h-40 flex items-center justify-center">
-                <span className="text-gray-500">Item {i + 1}</span>
+          {items.map((item) => (
+            <div key={item.id} className="bg-white rounded-xl shadow-md overflow-hidden">
+              <div className="h-40 overflow-hidden">
+                <img 
+                  src={item.image} 
+                  alt={item.name} 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"%3E%3Crect fill="%23e0e0e0" width="400" height="300"/%3E%3Ctext fill="%23999" font-size="24" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E';
+                  }}
+                />
               </div>
               <div className="p-4">
-                <h3 className="font-semibold text-gray-800 mb-2">Water Bottle</h3>
-                <p className="text-gray-600 text-sm mb-2">Found on floor in Room 101</p>
-                <p className="text-gray-500 text-xs">27/03/2023</p>
+                <h3 className="font-semibold text-gray-800 mb-2">{item.name}</h3>
+                <p className="text-gray-600 text-sm mb-2">{item.location}</p>
+                <p className="text-gray-500 text-xs">{item.date}</p>
                 <Link 
-                  href="#" 
+                  href={`/item/${item.id}`} 
                   className="mt-3 inline-block text-purple-600 font-medium hover:underline"
                 >
                   View Details →
