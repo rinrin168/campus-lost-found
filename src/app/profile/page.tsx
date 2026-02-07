@@ -16,7 +16,6 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
-    // In a real app, this would fetch user data from an API
     const userData = localStorage.getItem("userData");
     if (userData) {
       setFormData(JSON.parse(userData));
@@ -29,7 +28,6 @@ export default function ProfilePage() {
   };
 
   const handleSave = () => {
-    // In a real app, this would save data to an API
     localStorage.setItem("userData", JSON.stringify(formData));
     setIsEditing(false);
   };
@@ -62,9 +60,9 @@ export default function ProfilePage() {
 
       {/* Profile Content */}
       <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Back button */}
+        {/* Back button - Redirects to landing page */}
         <Link 
-          href="/" 
+          href="/landing" 
           className="flex items-center text-gray-600 hover:text-gray-800 mb-6"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
@@ -74,7 +72,7 @@ export default function ProfilePage() {
         </Link>
 
         {/* Profile Header */}
-        <div className="bg-purple-100 rounded-2xl p-8 mb-8">
+        <div className="bg-purple-100 rounded-2xl p8 mb-8">
           <div className="flex flex-col items-center">
             <div className="w-24 h-24 rounded-full bg-purple-200 flex items-center justify-center mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -89,7 +87,7 @@ export default function ProfilePage() {
         {/* Profile Form */}
         <div className="bg-white rounded-2xl shadow-md p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Left Column */}
+            
             <div>
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
@@ -143,7 +141,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Right Column */}
             <div>
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Report Made</label>

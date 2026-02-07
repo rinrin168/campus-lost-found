@@ -113,8 +113,9 @@ export default function LandingPage() {
               From water bottles to laptops, our platform makes finding lost items way less stressful and a lot more fun. 
               Post it, search it, and let the magic of campus kindness do the rest.
             </p>
+            {/* CHANGED: Redirect to items page */}
             <Link 
-              href="/explore" 
+              href="/items" 
               className="bg-purple-600 text-white px-6 py-3 rounded-lg font-bold text-lg hover:bg-purple-700 transition-colors inline-flex items-center"
             >
               Explore More →
@@ -143,12 +144,7 @@ export default function LandingPage() {
                 <h3 className="font-semibold text-gray-800 mb-2">{item.name}</h3>
                 <p className="text-gray-600 text-sm mb-2">{item.location}</p>
                 <p className="text-gray-500 text-xs">{item.date}</p>
-                <Link 
-                  href={`/item/${item.id}`} 
-                  className="mt-3 inline-block text-purple-600 font-medium hover:underline"
-                >
-                  View Details →
-                </Link>
+                {/* REMOVED: View Details link */}
               </div>
             </div>
           ))}

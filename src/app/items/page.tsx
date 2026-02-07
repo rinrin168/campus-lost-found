@@ -11,8 +11,7 @@ export default function ItemsPage() {
     const ok = localStorage.getItem("isLoggedIn") === "true";
     if (!ok) router.replace("/login");
   }, [router]);
-
-  // Sample data - in real app, this would come from an API
+  
   const items = [
     {
       id: 1,
@@ -52,13 +51,10 @@ export default function ItemsPage() {
   return (
     <div className="min-h-screen px-6 py-10 bg-[color:var(--purple-lighter)]">
       <div className="mx-auto max-w-6xl">
+        {/* Header - Home link on LEFT */}
         <div className="flex items-center justify-between mb-8">
-          <Link href="/" className="font-semibold text-[color:var(--purple-dark)] flex items-center">
+          <Link href="/landing" className="font-semibold text-[color:var(--purple-dark)] flex items-center">
             ← Home
-          </Link>
-          <Link href="/item/new" className="font-semibold text-[color:var(--purple-dark)] flex items-center">
-            <span className="bg-[color:var(--purple-dark)] text-white rounded-full w-6 h-6 flex items-center justify-center mr-2">+</span>
-            Report
           </Link>
         </div>
 
@@ -78,8 +74,6 @@ export default function ItemsPage() {
                         src={item.image} 
                         alt={item.item}
                         className="object-cover w-full h-full"
-                        width={96}
-                        height={96}
                       />
                     </div>
                   </div>
@@ -117,6 +111,7 @@ export default function ItemsPage() {
                       <span className="text-[color:var(--purple-dark)]">{item.description}</span>
                     </div>
                     
+                    {/* View Details link - Redirects to item detail page */}
                     <div className="flex justify-between items-center mt-2">
                       <div className="text-sm text-gray-500">
                         <span className="font-bold">{item.userId}</span>
