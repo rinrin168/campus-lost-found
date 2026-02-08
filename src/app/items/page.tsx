@@ -51,7 +51,7 @@ export default function ItemsPage() {
   return (
     <div className="min-h-screen px-6 py-10 bg-[color:var(--purple-lighter)]">
       <div className="mx-auto max-w-6xl">
-        {/* Header - Home link on LEFT */}
+        {/* Header*/}
         <div className="flex items-center justify-between mb-8">
           <Link href="/landing" className="font-semibold text-[color:var(--purple-dark)] flex items-center">
             ← Home
