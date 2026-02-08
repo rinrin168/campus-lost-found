@@ -7,11 +7,6 @@ export default function StartPage() {
     <main style={styles.page}>
       {/* Left panel */}
       <section style={styles.left}>
-        {/* top-left icon */}
-        <div style={styles.topLeftIcon} aria-hidden="true">
-          🔍
-        </div>
-
         <div style={styles.illustrationWrap}>
           <img
             src="/images/photo1.png"
@@ -23,15 +18,9 @@ export default function StartPage() {
 
       {/* Right panel */}
       <section style={styles.right}>
-        {/* top-right hamburger */}
-        <div style={styles.topRightIcon} aria-hidden="true">
-          ☰
-        </div>
-
         <div style={styles.rightContent}>
           <p style={styles.quote}>
-            “Lost something? Don’t worry — your campus community is here to
-            help.”
+            "Lost something? Don't worry — your campus community is here to help."
           </p>
 
           <Link href="/login" style={styles.button}>
@@ -47,8 +36,10 @@ const styles: Record<string, React.CSSProperties> = {
   page: {
     minHeight: "100vh",
     display: "grid",
-    gridTemplateColumns: "1fr 420px",
+    gridTemplateColumns: "1fr 1fr",
     background: "#f8f6fd",
+    height: "100vh",
+    overflow: "hidden",
   },
 
   left: {
@@ -56,66 +47,68 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#ffffff",
     display: "grid",
     placeItems: "center",
-    padding: "40px 24px",
+    padding: "24px",
   },
-  topLeftIcon: {
-    position: "absolute",
-    top: 18,
-    left: 18,
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    border: "2px solid #7c4dff",
-    display: "grid",
-    placeItems: "center",
-    fontSize: 18,
-    userSelect: "none",
-  },
+  
   illustrationWrap: {
-    width: "min(520px, 90%)",
+    width: "100%",
     display: "grid",
     placeItems: "center",
+    height: "100%",
   },
+  
   illustration: {
     width: "100%",
     height: "auto",
+    maxWidth: "400px",
+    maxHeight: "350px",
+    objectFit: "contain",
     display: "block",
   },
 
   right: {
     position: "relative",
-    background: "#d9a8ff",
+    background: "#f5e6ff",
     display: "grid",
     placeItems: "center",
-    padding: "40px 24px",
+    padding: "24px",
   },
-  topRightIcon: {
-    position: "absolute",
-    top: 18,
-    right: 18,
-    fontSize: 22,
-    userSelect: "none",
-  },
+  
   rightContent: {
     width: "100%",
-    maxWidth: 280,
+    maxWidth: "400px",
     textAlign: "center",
+    padding: "20px",
   },
+  
   quote: {
     margin: 0,
-    fontSize: 16,
-    lineHeight: 1.6,
-    fontWeight: 600,
+    fontSize: "1.25rem",
+    lineHeight: 1.5,
+    fontWeight: 500,
     color: "#1f1f1f",
+    fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    marginBottom: "24px",
+    textAlign: "center",
   },
+  
   button: {
     display: "inline-block",
-    marginTop: 18,
-    padding: "12px 22px",
-    borderRadius: 999,
-    background: "#3f3f46",
+    padding: "12px 28px",
+    borderRadius: "8px",
+    background: "#7c4dff",
     color: "#fff",
     textDecoration: "none",
-    fontWeight: 700,
+    fontWeight: 600,
+    fontSize: "1rem",
+    letterSpacing: "0.5px",
+    transition: "all 0.2s ease",
+    boxShadow: "0 4px 12px rgba(124, 77, 255, 0.25)",
+  },
+  
+  buttonHover: {
+    background: "#6d38e6",
+    transform: "translateY(-2px)",
+    boxShadow: "0 6px 16px rgba(124, 77, 255, 0.3)",
   },
 };
