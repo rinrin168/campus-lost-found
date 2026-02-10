@@ -11,8 +11,6 @@ export default function ItemsPage() {
   useEffect(() => {
     const ok = localStorage.getItem("isLoggedIn") === "true";
     if (!ok) router.replace("/login");
-    
-    // Get current user ID from localStorage
     const userData = localStorage.getItem("userData");
     if (userData) {
       try {
@@ -71,8 +69,6 @@ export default function ItemsPage() {
       claimed: false
     }
   ]);
-
-  // Toggle claimed status
   const toggleClaimed = (id: number) => {
     setItems(prevItems => 
       prevItems.map(item => 
@@ -80,7 +76,7 @@ export default function ItemsPage() {
       )
     );
     
-    // In real app: API call to update claimed status
+
     const updatedItem = items.find(item => item.id === id);
     if (updatedItem) {
       console.log(`Item ${id} marked as ${!updatedItem.claimed ? 'claimed' : 'unclaimed'}`);
