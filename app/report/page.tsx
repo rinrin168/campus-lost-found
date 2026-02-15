@@ -1,15 +1,17 @@
+// app/report/page.tsx
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 export default function ReportPage() {
   const router = useRouter();
   const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [status, setStatus] = useState<'lost' | 'found'>('found');
   
-  // Form state
   const [reporterName, setReporterName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -19,34 +21,94 @@ export default function ReportPage() {
   const [date, setDate] = useState('');
   const [description, setDescription] = useState('');
 
+  // ✅ CORRECT AUTH CHECK
   useEffect(() => {
-    const ok = localStorage.getItem("isLoggedIn") === "true";
-    if (!ok) router.replace("/login");
-  }, [router]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Create item object matching ItemsPage structure
-    const newItem = {
-      id: Date.now(), // Temporary ID
-      reporter: reporterName,
-      email: email,
-      item: itemName,
-      location: location,
-      date: date,
-      description: description,
-      userId: `user:${reporterName.toLowerCase().replace(/\s+/g, '')}`, // Auto-generate
-      image: photo ? URL.createObjectURL(photo) : '/images/default-item.jpg',
-      telegram: telegram,
-      phone: phone,
-      status: status.charAt(0).toUpperCase() + status.slice(1) // Capitalize first letter
+    const checkAuth = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error || !session) {
+        router.replace("/login");
+        return;
+      }
     };
 
-    console.log("Form submitted:", newItem);
-    
-    // In a real app, you would save this to a database here
-    alert("Report submitted successfully!");
+    checkAuth();
+  }, [router]);
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("❌ Please upload an image (jpg, png, gif)");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("❌ Image must be under 5MB");
+      return;
+    }
+
+    setPhoto(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    if (authError || !session) {
+      router.push("/login");
+      return;
+    }
+    const userId = session.user.id;
+
+    let imageUrl = "/images/default-item.jpg";
+    if (photo) {
+      const fileExt = photo.name.split(".").pop();
+      const fileName = `${userId}/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from("item-images")
+        .upload(fileName, photo, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        alert("❌ Image upload failed: " + uploadError.message);
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("item-images")
+        .getPublicUrl(fileName);
+      imageUrl = publicUrlData.publicUrl;
+    }
+
+    const { error } = await supabase
+      .from("items")
+      .insert({
+        reporter_name: reporterName,
+        email: email,
+        phone: phone,
+        telegram: telegram,
+        item_name: itemName,
+        location: location,
+        date: new Date(date),
+        description: description,
+        status: status.charAt(0).toUpperCase() + status.slice(1),
+        claimed: false,
+        image_url: imageUrl,
+        user_id: userId,
+      });
+
+    if (error) {
+      alert("❌ Submission failed: " + error.message);
+      return;
+    }
+
+    alert("✅ Report submitted successfully!");
     router.push("/items");
   };
 
@@ -63,7 +125,7 @@ export default function ReportPage() {
         </div>
 
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-extrabold text-[color:var(--purple-dark)] mb-2">
+          <h1 className="text-2xl font-extrabold text-[color:var(--purple-dark)]">
             Report Your Finding Here!
           </h1>
           <p className="text-[color:var(--purple-dark)]">
@@ -151,10 +213,10 @@ export default function ReportPage() {
             />
           </div>
 
-          {/* Upload Photo */}
+          {/* Upload Photo - With Preview */}
           <div>
             <label className="block text-sm font-medium text-[color:var(--purple-dark)] mb-1">
-              Upload a Photo
+              Upload a Photo *
             </label>
             <div className="border-2 border-dashed border-[color:var(--purple-dark)] rounded-xl p-6 text-center cursor-pointer hover:border-purple-700 transition-colors">
               <input 
@@ -162,7 +224,7 @@ export default function ReportPage() {
                 accept="image/*" 
                 className="hidden" 
                 id="photo-upload"
-                onChange={(e) => e.target.files && setPhoto(e.target.files[0])}
+                onChange={handlePhotoChange}
               />
               <label 
                 htmlFor="photo-upload"
@@ -171,6 +233,30 @@ export default function ReportPage() {
                 {photo ? 'Change Photo' : 'Upload Photo'}
               </label>
               <p className="text-xs text-gray-500 mt-2">PNG, JPG, GIF up to 10MB</p>
+              
+              {/* Preview */}
+              {photoPreview && (
+                <div className="mt-4">
+                  <div className="relative inline-block">
+                    <img 
+                      src={photoPreview} 
+                      alt="Preview" 
+                      className="w-32 h-32 object-cover rounded-lg mx-auto border-2 border-gray-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPhoto(null);
+                        setPhotoPreview(null);
+                      }}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">Click to change</p>
+                </div>
+              )}
             </div>
           </div>
 

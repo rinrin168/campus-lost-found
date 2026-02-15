@@ -1,14 +1,16 @@
+// app/verify-code/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
-export default function VerifyCodePage() {
-  const router = useRouter();
+export default function VerifyCode() {
   const [email, setEmail] = useState("");
-  const [code, setCode] = useState(["", "", "", "", "", ""]);
+  const [code, setCode] = useState<string[]>(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const storedEmail = localStorage.getItem("resetEmail");
@@ -24,26 +26,35 @@ export default function VerifyCodePage() {
     const newCode = [...code];
     newCode[index] = value.slice(0, 1);
     setCode(newCode);
+
+    // Auto-focus next input
+    if (value && index < 5) {
+      const nextInput = document.getElementById(`code-${index + 1}`);
+      if (nextInput) nextInput.focus();
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setLoading(true);
     setError("");
 
     const fullCode = code.join("");
+    if (fullCode.length !== 6) {
+      setError("Please enter a 6-digit code");
+      setLoading(false);
+      return;
+    }
 
-    const res = await fetch("/api/auth/verify-reset-code", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, code: fullCode }),
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token: fullCode,
+      type: "email",
     });
 
-    const data = await res.json();
-
-    if (!res.ok) {
-      setError(data.error || "Verification failed");
-      setIsLoading(false);
+    if (error) {
+      setError("Invalid or expired code. Please try again.");
+      setLoading(false);
       return;
     }
 
@@ -52,55 +63,95 @@ export default function VerifyCodePage() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-100 to-indigo-200 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-[400px] text-center">
-        <h2 className="text-2xl font-bold text-purple-700 mb-2">
+    <div style={{ 
+      minHeight: "100vh", 
+      display: "flex", 
+      alignItems: "center", 
+      justifyContent: "center", 
+      background: "#f8f6fd",
+      padding: "20px"
+    }}>
+      <div style={{ 
+        width: "100%", 
+        maxWidth: "400px", 
+        background: "white", 
+        borderRadius: "16px", 
+        padding: "32px",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.05)"
+      }}>
+        <h1 style={{ textAlign: "center", fontSize: "24px", fontWeight: "700", color: "#4a3780" }}>
           Verify Code
-        </h2>
-
-        <p className="text-gray-600 mb-4">
-          We sent a 6-digit code to
+        </h1>
+        <p style={{ textAlign: "center", marginTop: "8px", color: "#666" }}>
+          We sent a 6-digit code to:
         </p>
-
-        <p className="text-indigo-600 font-semibold mb-6">
+        <p style={{ textAlign: "center", fontWeight: "600", color: "#7c4dff", marginBottom: "24px" }}>
           {email}
         </p>
 
         {error && (
-          <div className="bg-red-100 text-red-600 p-3 rounded-lg mb-4 text-sm">
-            {error}
+          <div style={{
+            background: "#fff1f1",
+            border: "1px solid #ffccc7",
+            color: "#d32f2f",
+            borderRadius: "8px",
+            padding: "12px 16px",
+            marginBottom: "20px",
+            fontSize: "14px"
+          }}>
+            ❌ {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
-          <div className="flex justify-center gap-3 mb-6">
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "24px" }}>
             {code.map((digit, index) => (
               <input
                 key={index}
+                id={`code-${index}`}
+                type="text"
                 value={digit}
-                maxLength={1}
                 onChange={(e) => handleChange(index, e.target.value)}
-                className="w-12 h-12 text-center text-lg border-2 border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+                maxLength={1}
+                style={{
+                  width: "50px",
+                  height: "50px",
+                  textAlign: "center",
+                  fontSize: "20px",
+                  border: "1px solid #d1c9f0",
+                  borderRadius: "8px",
+                  outline: "none"
+                }}
               />
             ))}
           </div>
 
           <button
             type="submit"
-            disabled={isLoading}
-            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-xl font-semibold shadow-md hover:opacity-90 transition"
+            disabled={loading}
+            style={{
+              width: "100%",
+              padding: "14px",
+              backgroundColor: loading ? "#9a81d9" : "#7c4dff",
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              fontSize: "16px",
+              fontWeight: "600",
+              cursor: loading ? "not-allowed" : "pointer"
+            }}
           >
-            {isLoading ? "Verifying..." : "Verify"}
+            {loading ? "Verifying..." : "Verify Code"}
           </button>
         </form>
 
-        <button
-          onClick={() => router.push("/forgot-password")}
-          className="mt-4 text-purple-600 hover:underline"
-        >
-          Change Email
-        </button>
+        <p style={{ marginTop: "16px", textAlign: "center", fontSize: "14px", color: "#666" }}>
+          Didn't receive the code?{" "}
+          <a href="/forgot-password" style={{ color: "#7c4dff", fontWeight: "600" }}>
+            Resend
+          </a>
+        </p>
       </div>
-    </main>
+    </div>
   );
 }
