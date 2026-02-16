@@ -7,17 +7,17 @@ import { supabase } from "@/lib/supabase";
 
 export default function SignupPage() {
   const router = useRouter();
-
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
+    // Validation
     if (!username.trim()) {
       setError("Username is required");
       return;
@@ -35,21 +35,43 @@ export default function SignupPage() {
       return;
     }
 
-    const cleanUser = username.toLowerCase().replace(/\s+/g, "");
-    
-    const { error } = await supabase.auth.signUp({
+    // Step 1: Sign up with Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: { username: cleanUser },  // ✅ SAFE: inside JS, not JSX
-      },
     });
 
-    if (error) {
-      setError(error.message);
+    if (authError) {
+      setError(authError.message);
       return;
     }
 
+    // Step 2: Get the user ID (UUID)
+    const userId = authData.user?.id;
+    if (!userId) {
+      setError("User created, but ID is missing. Please try again.");
+      return;
+    }
+
+    // Step 3: Create profile with the correct UUID
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .insert({
+        id: userId, // ✅ This is the real UUID from Supabase
+        username: username.toLowerCase().replace(/\s+/g, ""),
+        email: email,
+        report_made: 0,
+        lost_or_found_item: 0,
+      });
+
+    if (profileError) {
+      console.error("Profile creation failed:", profileError);
+      setError("Failed to create profile: " + profileError.message);
+      return;
+    }
+
+    // Success
+    alert("✅ Account created successfully!");
     router.push("/login");
   };
 
@@ -96,7 +118,14 @@ export default function SignupPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              style={{ width: "100%", padding: "12px", border: "1px solid #d1c9f0", borderRadius: "8px", outline: "none" }}
+              style={{
+                width: "100%",
+                padding: "12px 16px",
+                border: "1px solid #d1c9f0",
+                borderRadius: "8px",
+                fontSize: "16px",
+                outline: "none"
+              }}
             />
           </div>
 
@@ -107,7 +136,14 @@ export default function SignupPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              style={{ width: "100%", padding: "12px", border: "1px solid #d1c9f0", borderRadius: "8px", outline: "none" }}
+              style={{
+                width: "100%",
+                padding: "12px 16px",
+                border: "1px solid #d1c9f0",
+                borderRadius: "8px",
+                fontSize: "16px",
+                outline: "none"
+              }}
             />
           </div>
 
@@ -118,7 +154,14 @@ export default function SignupPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              style={{ width: "100%", padding: "12px", border: "1px solid #d1c9f0", borderRadius: "8px", outline: "none" }}
+              style={{
+                width: "100%",
+                padding: "12px 16px",
+                border: "1px solid #d1c9f0",
+                borderRadius: "8px",
+                fontSize: "16px",
+                outline: "none"
+              }}
             />
           </div>
 
@@ -129,7 +172,14 @@ export default function SignupPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              style={{ width: "100%", padding: "12px", border: "1px solid #d1c9f0", borderRadius: "8px", outline: "none" }}
+              style={{
+                width: "100%",
+                padding: "12px 16px",
+                border: "1px solid #d1c9f0",
+                borderRadius: "8px",
+                fontSize: "16px",
+                outline: "none"
+              }}
             />
           </div>
 

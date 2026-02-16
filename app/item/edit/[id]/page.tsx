@@ -2,16 +2,21 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-export default function ReportPage() {
+export default function EditItemPage() {
   const router = useRouter();
+  const params = useParams();
+  const itemId = params.id as string;
+  
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<'Lost' | 'Found'>('Found');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [reporterName, setReporterName] = useState('');
   const [email, setEmail] = useState('');
@@ -23,22 +28,62 @@ export default function ReportPage() {
   const [description, setDescription] = useState('');
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error || !session) {
-        router.replace("/login");
-        return;
-      }
+    const loadItem = async () => {
+      try {
+        // Check authentication
+        const { data: { session }, error: authError } = await supabase.auth.getSession();
+        
+        if (authError || !session) {
+          router.replace("/login");
+          return;
+        }
 
-      // Pre-fill email from user session
-      if (session.user.email) {
-        setEmail(session.user.email);
+        // Load item data
+        const { data: item, error: itemError } = await supabase
+          .from("items")
+          .select("*")
+          .eq("id", itemId)
+          .single();
+
+        if (itemError) {
+          console.error("Error loading item:", itemError);
+          alert("❌ Failed to load item");
+          router.push("/items");
+          return;
+        }
+
+        // Check if user owns this item
+        if (item.user_id !== session.user.id) {
+          alert("❌ You don't have permission to edit this item");
+          router.push("/items");
+          return;
+        }
+
+        // Populate form with existing data
+        setReporterName(item.reporter_name);
+        setEmail(item.email);
+        setPhone(item.phone || '');
+        setTelegram(item.telegram || '');
+        setItemName(item.item_name);
+        setLocation(item.location);
+        setDate(new Date(item.date).toISOString().split('T')[0]);
+        setDescription(item.description);
+        setStatus(item.status);
+        setExistingImageUrl(item.image_url);
+        setPhotoPreview(item.image_url);
+        
+        setLoading(false);
+      } catch (error) {
+        console.error("Error:", error);
+        alert("❌ An error occurred");
+        router.push("/items");
       }
     };
 
-    checkAuth();
-  }, [router]);
+    if (itemId) {
+      loadItem();
+    }
+  }, [itemId, router]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -58,10 +103,19 @@ export default function ReportPage() {
     setPhotoPreview(URL.createObjectURL(file));
   };
 
-  const uploadImage = async (userId: string): Promise<string | null> => {
-    if (!photo) return null;
+  const uploadNewImage = async (userId: string): Promise<string | null> => {
+    if (!photo) return existingImageUrl;
 
     try {
+      // Delete old image if exists and it's not the default
+      if (existingImageUrl && !existingImageUrl.includes('default-item.jpg')) {
+        const oldFileName = existingImageUrl.split('/').slice(-2).join('/');
+        await supabase.storage
+          .from("item-images")
+          .remove([oldFileName]);
+      }
+
+      // Upload new image
       const fileExt = photo.name.split(".").pop()?.toLowerCase();
       const fileName = `${userId}/${Date.now()}.${fileExt}`;
       
@@ -84,7 +138,7 @@ export default function ReportPage() {
       return publicUrlData.publicUrl;
     } catch (error) {
       console.error("Image upload error:", error);
-      return null;
+      return existingImageUrl;
     }
   };
 
@@ -96,31 +150,24 @@ export default function ReportPage() {
       // Check authentication
       const { data: { session }, error: authError } = await supabase.auth.getSession();
       if (authError || !session) {
-        alert("❌ Please log in to submit a report");
+        alert("❌ Please log in to update this item");
         router.push("/login");
         return;
       }
       const userId = session.user.id;
 
-      // Validate required fields
-      if (!photo) {
-        alert("❌ Please upload a photo of the item");
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Upload image
-      const imageUrl = await uploadImage(userId);
+      // Upload new image if changed
+      const imageUrl = await uploadNewImage(userId);
       if (!imageUrl) {
-        alert("❌ Failed to upload image. Please try again.");
+        alert("❌ Failed to process image. Please try again.");
         setIsSubmitting(false);
         return;
       }
 
-      // Insert item into database
-      const { error: insertError } = await supabase
+      // Update item in database
+      const { error: updateError } = await supabase
         .from("items")
-        .insert({
+        .update({
           reporter_name: reporterName.trim(),
           email: email.trim().toLowerCase(),
           phone: phone.trim() || null,
@@ -130,44 +177,52 @@ export default function ReportPage() {
           date: new Date(date).toISOString(),
           description: description.trim(),
           status: status,
-          claimed: false,
           image_url: imageUrl,
-          user_id: userId,
-        });
+        })
+        .eq("id", itemId)
+        .eq("user_id", userId);
 
-      if (insertError) {
-        console.error("Insert error:", insertError);
-        throw new Error(`Submission failed: ${insertError.message}`);
+      if (updateError) {
+        console.error("Update error:", updateError);
+        throw new Error(`Update failed: ${updateError.message}`);
       }
 
-      alert("✅ Report submitted successfully!");
+      alert("✅ Item updated successfully!");
       router.push("/items");
     } catch (error) {
-      console.error("Submission error:", error);
+      console.error("Update error:", error);
       alert(error instanceof Error ? error.message : "❌ An error occurred. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[color:var(--purple-lighter)]">
+        <div className="text-center">
+          <div className="animate-spin text-4xl mb-4">⏳</div>
+          <p className="text-[color:var(--purple-dark)] font-medium">Loading item...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen px-6 py-10 bg-[color:var(--purple-lighter)]">
       <div className="mx-auto max-w-3xl">
         <div className="flex items-center justify-between mb-8">
-          <Link href="/landing" className="font-semibold text-[color:var(--purple-dark)] flex items-center hover:underline">
-            ← Back
-          </Link>
           <Link href="/items" className="font-semibold text-[color:var(--purple-dark)] flex items-center hover:underline">
-            View Items
+            ← Back to Items
           </Link>
         </div>
 
         <div className="text-center mb-8">
           <h1 className="text-2xl font-extrabold text-[color:var(--purple-dark)]">
-            Report Your Finding Here!
+            Edit Your Item
           </h1>
           <p className="text-[color:var(--purple-dark)] mt-2">
-            Report the item you lost or found to help your campus community!
+            Update the information about your lost or found item
           </p>
         </div>
 
@@ -260,7 +315,7 @@ export default function ReportPage() {
           {/* Photo Upload */}
           <div>
             <label className="block text-sm font-medium text-[color:var(--purple-dark)] mb-1">
-              Upload a Photo <span className="text-red-500">*</span>
+              Item Photo
             </label>
             <div className="border-2 border-dashed border-[color:var(--purple-dark)] rounded-xl p-6 text-center cursor-pointer hover:border-purple-700 transition-colors">
               <input 
@@ -270,13 +325,12 @@ export default function ReportPage() {
                 id="photo-upload"
                 onChange={handlePhotoChange}
                 disabled={isSubmitting}
-                required
               />
               <label 
                 htmlFor="photo-upload"
                 className="text-[color:var(--purple-dark)] font-medium hover:underline cursor-pointer"
               >
-                {photo ? '✓ Photo Selected - Click to Change' : '📷 Click to Upload Photo'}
+                {photo ? '✓ New Photo Selected' : '📷 Change Photo (Optional)'}
               </label>
               <p className="text-xs text-gray-500 mt-2">PNG, JPG, GIF, WEBP up to 5MB</p>
               
@@ -288,20 +342,24 @@ export default function ReportPage() {
                       alt="Preview" 
                       className="w-40 h-40 object-cover rounded-lg mx-auto border-2 border-gray-300"
                     />
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setPhoto(null);
-                        setPhotoPreview(null);
-                      }}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold hover:bg-red-600"
-                      disabled={isSubmitting}
-                    >
-                      ×
-                    </button>
+                    {photo && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setPhoto(null);
+                          setPhotoPreview(existingImageUrl);
+                        }}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold hover:bg-red-600"
+                        disabled={isSubmitting}
+                      >
+                        ×
+                      </button>
+                    )}
                   </div>
-                  <p className="text-xs text-gray-600 mt-2 font-medium">Preview - Click × to remove</p>
+                  <p className="text-xs text-gray-600 mt-2 font-medium">
+                    {photo ? 'New photo preview' : 'Current photo'}
+                  </p>
                 </div>
               )}
             </div>
@@ -393,10 +451,10 @@ export default function ReportPage() {
               {isSubmitting ? (
                 <>
                   <span className="animate-spin">⏳</span>
-                  Submitting...
+                  Updating...
                 </>
               ) : (
-                'Submit Report'
+                'Update Item'
               )}
             </button>
           </div>

@@ -33,16 +33,14 @@ export default function ProfilePage() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
-  // ✅ CORRECT AUTH CHECK
+  // Load profile on mount
   useEffect(() => {
     const loadProfile = async () => {
       setLoading(true);
       setNotice("");
 
-      // ✅ CORRECT: destructure { data, error }
       const { data: authData, error: authError } = await supabase.auth.getUser();
 
-      // If no user or error → redirect to login
       if (authError || !authData?.user) {
         router.push("/login");
         return;
@@ -50,7 +48,6 @@ export default function ProfilePage() {
 
       const user = authData.user;
 
-      // Load profile from database
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("username,email,telegram,report_made,lost_or_found_item,avatar_url")
@@ -58,7 +55,35 @@ export default function ProfilePage() {
         .single();
 
       if (profileError) {
-        setNotice("❌ Failed to load profile: " + profileError.message);
+        if (profileError.code === "PGRST116") {
+          // Profile doesn't exist - create it
+          const { error: insertError } = await supabase
+            .from("profiles")
+            .insert({
+              id: user.id,
+              username: user.email?.split("@")[0] || "user",
+              email: user.email || "",
+              telegram: "",
+              report_made: 0,
+              lost_or_found_item: 0,
+              avatar_url: "",
+            });
+
+          if (insertError) {
+            setNotice("❌ Failed to create profile: " + insertError.message);
+          } else {
+            setFormData({
+              username: user.email?.split("@")[0] || "user",
+              email: user.email || "",
+              telegram: "",
+              reportMade: "0",
+              lostOrFoundItem: "0",
+              avatar_url: "",
+            });
+          }
+        } else {
+          setNotice("❌ Failed to load profile: " + profileError.message);
+        }
       } else if (profileData) {
         setFormData({
           username: profileData.username ?? "",
@@ -109,12 +134,12 @@ export default function ProfilePage() {
       return;
     }
 
-    const user = authData.user;
+    const userId = authData.user.id;
     let avatarUrl = formData.avatar_url;
 
     if (avatarFile) {
       const fileExt = avatarFile.name.split(".").pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      const fileName = `${userId}/${Date.now()}.${fileExt}`;
       
       const { error: uploadError } = await supabase.storage
         .from("avatars")
@@ -135,6 +160,7 @@ export default function ProfilePage() {
       avatarUrl = publicUrlData.publicUrl;
     }
 
+    // ✅ CRITICAL: Use UPDATE, not INSERT
     const { error: updateError } = await supabase
       .from("profiles")
       .update({
@@ -146,9 +172,10 @@ export default function ProfilePage() {
         avatar_url: avatarUrl,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", user.id);
+      .eq("id", userId); // ← Must match auth.uid()
 
     if (updateError) {
+      console.error("Update error:", updateError);
       setNotice("❌ Save failed: " + updateError.message);
       return;
     }
