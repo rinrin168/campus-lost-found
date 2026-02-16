@@ -1,7 +1,7 @@
 // app/items/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -28,8 +28,11 @@ export default function ItemsPage() {
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'Lost' | 'Found'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  
+  // ✅ Search & Filter State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "Lost" | "Found">("all");
+  const [claimedFilter, setClaimedFilter] = useState<"all" | true | false>("all");
 
   useEffect(() => {
     const loadItems = async () => {
@@ -47,9 +50,9 @@ export default function ItemsPage() {
 
       if (error) {
         console.error("Error loading items:", error);
-        alert("Failed to load items. Please refresh the page.");
+        alert("Failed to load items.");
       } else {
-        setItems((data as Item[]) || []);
+        setItems(data || []);
       }
       setLoading(false);
     };
@@ -81,9 +84,38 @@ export default function ItemsPage() {
     };
   }, [router]);
 
+  // ✅ Optimized filtered items using useMemo
+  const filteredItems = useMemo(() => {
+    return items.filter(item => {
+      // Status filter
+      if (statusFilter !== "all" && item.status !== statusFilter) {
+        return false;
+      }
+      
+      // Claimed filter
+      if (claimedFilter !== "all" && item.claimed !== claimedFilter) {
+        return false;
+      }
+
+      // Search query (case-insensitive)
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        return (
+          item.item_name.toLowerCase().includes(query) ||
+          item.location.toLowerCase().includes(query) ||
+          item.description.toLowerCase().includes(query) ||
+          item.reporter_name.toLowerCase().includes(query)
+        );
+      }
+
+      return true;
+    });
+  }, [items, searchQuery, statusFilter, claimedFilter]);
+
+  // ... rest of your functions (toggleClaimed, handleDelete, etc.) ...
+
   const toggleClaimed = async (id: string, currentStatus: boolean) => {
     const newStatus = !currentStatus;
-    
     setItems(prev => prev.map(item => 
       item.id === id ? { ...item, claimed: newStatus } : item
     ));
@@ -97,67 +129,27 @@ export default function ItemsPage() {
       setItems(prev => prev.map(item => 
         item.id === id ? { ...item, claimed: currentStatus } : item
       ));
-      const notification = document.createElement('div');
-      notification.textContent = `❌ Failed to update: ${error.message}`;
-      notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-bounce';
-      document.body.appendChild(notification);
-      setTimeout(() => notification.remove(), 3000);
-    } else {
-      const message = newStatus 
-        ? "✅ Item marked as claimed!" 
-        : "✅ Item marked as unclaimed!";
-      
-      const notification = document.createElement('div');
-      notification.textContent = message;
-      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-bounce';
-      document.body.appendChild(notification);
-      setTimeout(() => notification.remove(), 2000);
+      alert("Failed to update item: " + error.message);
     }
   };
 
   const handleDelete = async (id: string, imageUrl: string | null) => {
-    if (!confirm("Are you sure you want to delete this item? This action cannot be undone.")) {
-      return;
-    }
+    if (!confirm("Are you sure? This cannot be undone.")) return;
 
     const deletedItem = items.find(item => item.id === id);
     setItems(prev => prev.filter(item => item.id !== id));
 
     try {
-      // Delete image from storage if exists
       if (imageUrl && !imageUrl.includes('default-item.jpg')) {
         const fileName = imageUrl.split('/').slice(-2).join('/');
-        await supabase.storage
-          .from('item-images')
-          .remove([fileName]);
+        await supabase.storage.from('item-images').remove([fileName]);
       }
 
-      // Delete item from database
-      const { error } = await supabase
-        .from("items")
-        .delete()
-        .eq("id", id);
-
+      const { error } = await supabase.from("items").delete().eq("id", id);
       if (error) throw error;
-
-      // Success toast
-      const notification = document.createElement('div');
-      notification.textContent = "✅ Item deleted successfully";
-      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-bounce';
-      document.body.appendChild(notification);
-      setTimeout(() => notification.remove(), 2000);
-      
     } catch (error: any) {
-      // Revert on error
-      if (deletedItem) {
-        setItems(prev => [deletedItem, ...prev]);
-      }
-      
-      const notification = document.createElement('div');
-      notification.textContent = `❌ Delete failed: ${error.message || 'Unknown error'}`;
-      notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-bounce';
-      document.body.appendChild(notification);
-      setTimeout(() => notification.remove(), 3000);
+      if (deletedItem) setItems(prev => [deletedItem, ...prev]);
+      alert("Delete failed: " + error.message);
     }
   };
 
@@ -170,22 +162,10 @@ export default function ItemsPage() {
     router.push("/login");
   };
 
-  const filteredItems = items.filter(item => {
-    const matchesFilter = filter === 'all' || item.status === filter;
-    const matchesSearch = searchQuery === '' || 
-      item.item_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[color:var(--purple-lighter)]">
-        <div className="text-center">
-          <div className="animate-spin text-4xl mb-4">⏳</div>
-          <p className="text-[color:var(--purple-dark)] font-medium">Loading items...</p>
-        </div>
+        <p className="text-[color:var(--purple-dark)]">Loading items...</p>
       </div>
     );
   }
@@ -193,24 +173,16 @@ export default function ItemsPage() {
   return (
     <div className="min-h-screen px-6 py-10 bg-[color:var(--purple-lighter)]">
       <div className="mx-auto max-w-6xl">
+        {/* Header */}
         <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
-          <Link 
-            href="/landing" 
-            className="font-semibold text-[color:var(--purple-dark)] hover:underline"
-          >
+          <Link href="/landing" className="font-semibold text-[color:var(--purple-dark)] hover:underline">
             ← Back to Home
           </Link>
           <div className="flex gap-3">
-            <Link 
-              href="/report" 
-              className="px-6 py-2 bg-[color:var(--purple-dark)] text-white rounded-full font-semibold hover:bg-[color:var(--purple-darker)] transition-colors"
-            >
+            <Link href="/report" className="px-6 py-2 bg-[color:var(--purple-dark)] text-white rounded-full font-semibold hover:bg-[color:var(--purple-darker)]">
               + Report Item
             </Link>
-            <button
-              onClick={handleLogout}
-              className="px-6 py-2 border-2 border-[color:var(--purple-dark)] text-[color:var(--purple-dark)] rounded-full font-semibold hover:bg-[color:var(--purple-light)] transition-colors"
-            >
+            <button onClick={handleLogout} className="px-6 py-2 border-2 border-[color:var(--purple-dark)] text-[color:var(--purple-dark)] rounded-full font-semibold hover:bg-[color:var(--purple-light)]">
               Logout
             </button>
           </div>
@@ -219,75 +191,84 @@ export default function ItemsPage() {
         <h1 className="text-center text-3xl font-extrabold mb-2 text-[color:var(--purple-dark)]">
           Lost & Found Items
         </h1>
-        <p className="text-center text-[color:var(--purple-dark)] mb-8">
-          Browse items or report a new finding
-        </p>
 
+        {/* ✅ SEARCH & FILTER CONTROLS */}
         <div className="mb-6 rounded-3xl bg-[color:var(--purple-light)] p-6">
-          <div className="flex flex-col sm:flex-row gap-4 items-center">
-            <div className="flex-1 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Search */}
+            <div>
+              <label className="block text-sm font-medium text-[color:var(--purple-dark)] mb-1">
+                Search
+              </label>
               <input
                 type="text"
-                placeholder="🔍 Search by item name, location, or description..."
+                placeholder="Item, location, or description..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[color:var(--purple-dark)]"
+                className="w-full rounded-xl border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[color:var(--purple-dark)]"
               />
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFilter('all')}
-                className={`px-6 py-2 rounded-full font-medium transition-colors ${
-                  filter === 'all' 
-                    ? 'bg-[color:var(--purple-dark)] text-white' 
-                    : 'bg-white text-[color:var(--purple-dark)] border-2 border-[color:var(--purple-dark)]'
-                }`}
+
+            {/* Status Filter */}
+            <div>
+              <label className="block text-sm font-medium text-[color:var(--purple-dark)] mb-1">
+                Status
+              </label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className="w-full rounded-xl border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[color:var(--purple-dark)]"
               >
-                All
-              </button>
-              <button
-                onClick={() => setFilter('Lost')}
-                className={`px-6 py-2 rounded-full font-medium transition-colors ${
-                  filter === 'Lost' 
-                    ? 'bg-red-500 text-white' 
-                    : 'bg-white text-red-500 border-2 border-red-500'
-                }`}
+                <option value="all">All Items</option>
+                <option value="Lost">Lost</option>
+                <option value="Found">Found</option>
+              </select>
+            </div>
+
+            {/* Claimed Filter */}
+            <div>
+              <label className="block text-sm font-medium text-[color:var(--purple-dark)] mb-1">
+                Claim Status
+              </label>
+              <select
+                value={claimedFilter}
+                onChange={(e) => setClaimedFilter(e.target.value as any)}
+                className="w-full rounded-xl border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[color:var(--purple-dark)]"
               >
-                Lost
-              </button>
-              <button
-                onClick={() => setFilter('Found')}
-                className={`px-6 py-2 rounded-full font-medium transition-colors ${
-                  filter === 'Found' 
-                    ? 'bg-green-500 text-white' 
-                    : 'bg-white text-green-500 border-2 border-green-500'
-                }`}
-              >
-                Found
-              </button>
+                <option value="all">All</option>
+                <option value="false">Not Claimed</option>
+                <option value="true">Claimed</option>
+              </select>
             </div>
           </div>
         </div>
 
+        {/* Results Count */}
+        <div className="mb-4 text-[color:var(--purple-dark)]">
+          Showing <span className="font-bold">{filteredItems.length}</span> of <span className="font-bold">{items.length}</span> items
+        </div>
+
+        {/* Items List */}
         <div className="rounded-3xl bg-[color:var(--purple-light)] p-6">
           {filteredItems.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-xl text-[color:var(--purple-dark)] font-medium mb-2">
-                No items found
-              </p>
-              <p className="text-[color:var(--purple-dark)]">
-                {searchQuery || filter !== 'all' 
-                  ? "Try adjusting your filters or search query" 
-                  : "Be the first to report an item!"}
-              </p>
+              <p className="text-xl text-[color:var(--purple-dark)]">No items match your filters.</p>
+              <button 
+                onClick={() => {
+                  setSearchQuery("");
+                  setStatusFilter("all");
+                  setClaimedFilter("all");
+                }}
+                className="mt-4 text-[color:var(--purple-dark)] underline"
+              >
+                Clear all filters
+              </button>
             </div>
           ) : (
             <div className="grid gap-4">
               {filteredItems.map((item) => (
-                <div 
-                  key={item.id} 
-                  className="rounded-2xl bg-white p-5 shadow-sm border-l-4 border-[color:var(--purple-dark)] hover:shadow-md transition-shadow"
-                >
+                <div key={item.id} className="rounded-2xl bg-white p-5 shadow-sm border-l-4 border-[color:var(--purple-dark)]">
+                  {/* Your existing item card JSX here */}
                   <div className="flex flex-col md:flex-row gap-4">
                     <div className="w-full md:w-32 flex-shrink-0 flex items-center justify-center">
                       <div className="bg-[color:var(--purple-light)] w-32 h-32 rounded-xl overflow-hidden relative">
@@ -348,10 +329,7 @@ export default function ItemsPage() {
                         </div>
                         <div>
                           <span className="font-semibold text-[color:var(--purple-dark)]">Email: </span>
-                          <a 
-                            href={`mailto:${item.email}`} 
-                            className="text-blue-600 hover:underline"
-                          >
+                          <a href={`mailto:${item.email}`} className="text-blue-600 hover:underline">
                             {item.email}
                           </a>
                         </div>
@@ -374,7 +352,6 @@ export default function ItemsPage() {
                         {item.telegram && (
                           <div>
                             <span className="font-semibold text-[color:var(--purple-dark)]">Telegram: </span>
-                            {/* ✅ Fixed Telegram link */}
                             <a 
                               href={`https://t.me/${item.telegram.replace('@', '')}`} 
                               target="_blank" 
@@ -395,25 +372,25 @@ export default function ItemsPage() {
                           <div className="flex gap-2">
                             <button
                               onClick={() => toggleClaimed(item.id, item.claimed)}
-                              className={`px-4 py-2 rounded-lg text-xs font-medium transition-all transform hover:scale-105 ${
+                              className={`px-4 py-2 rounded-lg text-xs font-medium ${
                                 item.claimed 
-                                  ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' 
-                                  : 'bg-blue-500 text-white hover:bg-blue-600'
+                                  ? 'bg-gray-200 text-gray-700' 
+                                  : 'bg-blue-500 text-white'
                               }`}
                             >
-                              {item.claimed ? '↩ Mark Unclaimed' : '✓ Mark Claimed'}
+                              {item.claimed ? 'Mark Unclaimed' : 'Mark Claimed'}
                             </button>
                             <button
                               onClick={() => handleEdit(item.id)}
-                              className="px-4 py-2 bg-[color:var(--purple-dark)] text-white rounded-lg text-xs font-medium hover:bg-[color:var(--purple-darker)] transition-all transform hover:scale-105"
+                              className="px-4 py-2 bg-[color:var(--purple-dark)] text-white rounded-lg text-xs font-medium"
                             >
-                              ✏ Edit
+                              Edit
                             </button>
                             <button
                               onClick={() => handleDelete(item.id, item.image_url)}
-                              className="px-4 py-2 bg-red-500 text-white rounded-lg text-xs font-medium hover:bg-red-600 transition-all transform hover:scale-105"
+                              className="px-4 py-2 bg-red-500 text-white rounded-lg text-xs font-medium"
                             >
-                              🗑 Delete
+                              Delete
                             </button>
                           </div>
                         </div>
