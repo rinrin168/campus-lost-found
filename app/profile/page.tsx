@@ -1,4 +1,3 @@
-// app/profile/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -33,7 +32,6 @@ export default function ProfilePage() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
-  // Load profile on mount
   useEffect(() => {
     const loadProfile = async () => {
       setLoading(true);
@@ -56,7 +54,6 @@ export default function ProfilePage() {
 
       if (profileError) {
         if (profileError.code === "PGRST116") {
-          // Profile doesn't exist - create it
           const { error: insertError } = await supabase
             .from("profiles")
             .insert({
@@ -138,29 +135,38 @@ export default function ProfilePage() {
     let avatarUrl = formData.avatar_url;
 
     if (avatarFile) {
-      const fileExt = avatarFile.name.split(".").pop();
-      const fileName = `${userId}/${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(fileName, avatarFile, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+      try {
+        if (formData.avatar_url && !formData.avatar_url.includes('default')) {
+          const oldFileName = formData.avatar_url.split('/').slice(-2).join('/');
+          await supabase.storage.from("avatars").remove([oldFileName]);
+        }
 
-      if (uploadError) {
-        setNotice("❌ Upload failed: " + uploadError.message);
+        const fileExt = avatarFile.name.split(".").pop();
+        const fileName = `${userId}/${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from("avatars")
+          .upload(fileName, avatarFile, {
+            cacheControl: "3600",
+            upsert: false,
+          });
+
+        if (uploadError) {
+          setNotice("❌ Upload failed: " + uploadError.message);
+          return;
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from("avatars")
+          .getPublicUrl(fileName);
+
+        avatarUrl = publicUrlData.publicUrl;
+      } catch (error: any) {
+        setNotice("❌ Avatar upload error: " + error.message);
         return;
       }
-
-      const { data: publicUrlData } = supabase.storage
-        .from("avatars")
-        .getPublicUrl(fileName);
-
-      avatarUrl = publicUrlData.publicUrl;
     }
 
-    // ✅ CRITICAL: Use UPDATE, not INSERT
     const { error: updateError } = await supabase
       .from("profiles")
       .update({
@@ -172,7 +178,7 @@ export default function ProfilePage() {
         avatar_url: avatarUrl,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", userId); // ← Must match auth.uid()
+      .eq("id", userId);
 
     if (updateError) {
       console.error("Update error:", updateError);
@@ -181,6 +187,7 @@ export default function ProfilePage() {
     }
 
     setFormData(prev => ({ ...prev, avatar_url: avatarUrl }));
+    setAvatarFile(null);
     setIsEditing(false);
     setNotice("✅ Profile saved!");
     setTimeout(() => setNotice(""), 3000);
@@ -193,7 +200,6 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen bg-purple-50">
-      {/* Header */}
       <header className="bg-white shadow-sm">
         <nav className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <Link href="/" className="flex items-center">
@@ -215,23 +221,19 @@ export default function ProfilePage() {
         </nav>
       </header>
 
-      {/* Back link */}
       <div className="max-w-4xl mx-auto px-4 py-6">
         <Link href="/landing" className="flex items-center text-gray-600 hover:text-gray-800 mb-2">
           ← Back to Home
         </Link>
       </div>
 
-      {/* Profile Card */}
       <div className="max-w-4xl mx-auto px-4 pb-12">
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-          {/* Header */}
           <div className="bg-gradient-to-r from-purple-600 to-indigo-700 p-6 text-white">
             <h1 className="text-2xl font-bold">Your Profile</h1>
             <p className="opacity-90 mt-1">Update your details and photo</p>
           </div>
 
-          {/* Notice */}
           {notice && (
             <div className={`px-6 py-3 text-center ${
               notice.startsWith("✅") 
@@ -242,7 +244,6 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* Content */}
           <div className="p-6">
             {loading ? (
               <div className="flex justify-center py-12">
@@ -250,7 +251,6 @@ export default function ProfilePage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Avatar Section */}
                 <div className="lg:col-span-1 flex flex-col items-center">
                   <div className="relative mb-6">
                     <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg">
@@ -292,7 +292,6 @@ export default function ProfilePage() {
                   </p>
                 </div>
 
-                {/* Form Section */}
                 <div className="lg:col-span-2 space-y-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
@@ -364,14 +363,26 @@ export default function ProfilePage() {
                   </div>
 
                   <div className="pt-2">
-                    <div className="flex justify-center">
+                    <div className="flex justify-center gap-4">
                       {isEditing ? (
-                        <button
-                          onClick={handleSave}
-                          className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-md hover:shadow-lg"
-                        >
-                          Save Changes
-                        </button>
+                        <>
+                          <button
+                            onClick={() => {
+                              setIsEditing(false);
+                              setAvatarFile(null);
+                              setAvatarPreview(formData.avatar_url || null);
+                            }}
+                            className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-md hover:shadow-lg"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleSave}
+                            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-md hover:shadow-lg"
+                          >
+                            Save Changes
+                          </button>
+                        </>
                       ) : (
                         <button
                           onClick={() => setIsEditing(true)}
@@ -387,7 +398,6 @@ export default function ProfilePage() {
             )}
           </div>
 
-          {/* Footer */}
           <div className="border-t border-gray-200 px-6 py-4 bg-gray-50 text-center text-sm text-gray-500">
             <p>© {new Date().getFullYear()} Campus Lost & Found. All rights reserved.</p>
           </div>

@@ -1,4 +1,3 @@
-// app/items/page.tsx
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -29,10 +28,9 @@ export default function ItemsPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // ✅ Search & Filter State
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "Lost" | "Found">("all");
-  const [claimedFilter, setClaimedFilter] = useState<"all" | true | false>("all");
+  const [claimedFilter, setClaimedFilter] = useState<"all" | "true" | "false">("all");
 
   useEffect(() => {
     const loadItems = async () => {
@@ -59,7 +57,6 @@ export default function ItemsPage() {
 
     loadItems();
 
-    // Real-time subscription
     const channel = supabase
       .channel('items-changes')
       .on(
@@ -84,20 +81,19 @@ export default function ItemsPage() {
     };
   }, [router]);
 
-  // ✅ Optimized filtered items using useMemo
   const filteredItems = useMemo(() => {
     return items.filter(item => {
-      // Status filter
       if (statusFilter !== "all" && item.status !== statusFilter) {
         return false;
       }
       
-      // Claimed filter
-      if (claimedFilter !== "all" && item.claimed !== claimedFilter) {
+      if (claimedFilter === "true" && !item.claimed) {
+        return false;
+      }
+      if (claimedFilter === "false" && item.claimed) {
         return false;
       }
 
-      // Search query (case-insensitive)
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         return (
@@ -111,8 +107,6 @@ export default function ItemsPage() {
       return true;
     });
   }, [items, searchQuery, statusFilter, claimedFilter]);
-
-  // ... rest of your functions (toggleClaimed, handleDelete, etc.) ...
 
   const toggleClaimed = async (id: string, currentStatus: boolean) => {
     const newStatus = !currentStatus;
@@ -173,7 +167,6 @@ export default function ItemsPage() {
   return (
     <div className="min-h-screen px-6 py-10 bg-[color:var(--purple-lighter)]">
       <div className="mx-auto max-w-6xl">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
           <Link href="/landing" className="font-semibold text-[color:var(--purple-dark)] hover:underline">
             ← Back to Home
@@ -192,10 +185,8 @@ export default function ItemsPage() {
           Lost & Found Items
         </h1>
 
-        {/* ✅ SEARCH & FILTER CONTROLS */}
         <div className="mb-6 rounded-3xl bg-[color:var(--purple-light)] p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Search */}
             <div>
               <label className="block text-sm font-medium text-[color:var(--purple-dark)] mb-1">
                 Search
@@ -209,14 +200,13 @@ export default function ItemsPage() {
               />
             </div>
 
-            {/* Status Filter */}
             <div>
               <label className="block text-sm font-medium text-[color:var(--purple-dark)] mb-1">
                 Status
               </label>
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
+                onChange={(e) => setStatusFilter(e.target.value as "all" | "Lost" | "Found")}
                 className="w-full rounded-xl border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[color:var(--purple-dark)]"
               >
                 <option value="all">All Items</option>
@@ -225,14 +215,13 @@ export default function ItemsPage() {
               </select>
             </div>
 
-            {/* Claimed Filter */}
             <div>
               <label className="block text-sm font-medium text-[color:var(--purple-dark)] mb-1">
                 Claim Status
               </label>
               <select
                 value={claimedFilter}
-                onChange={(e) => setClaimedFilter(e.target.value as any)}
+                onChange={(e) => setClaimedFilter(e.target.value as "all" | "true" | "false")}
                 className="w-full rounded-xl border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[color:var(--purple-dark)]"
               >
                 <option value="all">All</option>
@@ -243,12 +232,10 @@ export default function ItemsPage() {
           </div>
         </div>
 
-        {/* Results Count */}
         <div className="mb-4 text-[color:var(--purple-dark)]">
           Showing <span className="font-bold">{filteredItems.length}</span> of <span className="font-bold">{items.length}</span> items
         </div>
 
-        {/* Items List */}
         <div className="rounded-3xl bg-[color:var(--purple-light)] p-6">
           {filteredItems.length === 0 ? (
             <div className="text-center py-12">
@@ -268,7 +255,6 @@ export default function ItemsPage() {
             <div className="grid gap-4">
               {filteredItems.map((item) => (
                 <div key={item.id} className="rounded-2xl bg-white p-5 shadow-sm border-l-4 border-[color:var(--purple-dark)]">
-                  {/* Your existing item card JSX here */}
                   <div className="flex flex-col md:flex-row gap-4">
                     <div className="w-full md:w-32 flex-shrink-0 flex items-center justify-center">
                       <div className="bg-[color:var(--purple-light)] w-32 h-32 rounded-xl overflow-hidden relative">
