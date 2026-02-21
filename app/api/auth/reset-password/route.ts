@@ -1,77 +1,54 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import bcrypt from "bcryptjs";
-import { Resend } from "resend";
 
 // Use fallback values during build, real values at runtime
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-key";
-const resendKey = process.env.RESEND_API_KEY || "re_placeholder";
 
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
-const resend = new Resend(resendKey);
-
-function random6Digit() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
 
 export async function POST(req: Request) {
   try {
     // Check if we have real credentials at runtime
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || 
-        !process.env.SUPABASE_SERVICE_ROLE_KEY ||
-        !process.env.RESEND_API_KEY ||
-        !process.env.EMAIL_FROM) {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
       return NextResponse.json(
         { error: "Service configuration error" }, 
         { status: 503 }
       );
     }
 
-    const { email } = await req.json();
+    const { token, password } = await req.json();
 
-    if (!email || typeof email !== "string" || !email.includes("@")) {
-      return NextResponse.json({ error: "Invalid email" }, { status: 400 });
+    if (!token || !password) {
+      return NextResponse.json({ error: "Token and password are required" }, { status: 400 });
     }
 
-    const cleanEmail = email.toLowerCase().trim();
-    const code = random6Digit();
-    const code_hash = await bcrypt.hash(code, 10);
-    const expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const cleanToken = String(token).trim();
 
-    const { error: dbErr } = await supabaseAdmin
-      .from("password_reset_codes")
-      .upsert({
-        email: cleanEmail,
-        code_hash,
-        expires_at,
-        attempts: 0,
-        updated_at: new Date().toISOString(),
-      });
+    const { data: session, error: sessErr } = await supabaseAdmin
+      .from("password_reset_sessions")
+      .select("*")
+      .eq("token", cleanToken)
+      .single();
 
-    if (dbErr) {
-      return NextResponse.json({ error: dbErr.message }, { status: 500 });
+    if (sessErr || !session) {
+      return NextResponse.json({ error: "Invalid reset session" }, { status: 400 });
     }
 
-    const from = process.env.EMAIL_FROM!;
-    const { error: mailErr } = await resend.emails.send({
-      from,
-      to: cleanEmail,
-      subject: "Your password reset code",
-      html: `
-        <div style="font-family: Arial, sans-serif; line-height:1.6">
-          <h2>Password Reset</h2>
-          <p>Your verification code is:</p>
-          <div style="font-size:28px;font-weight:700;letter-spacing:4px">${code}</div>
-          <p>This code expires in <b>10 minutes</b>.</p>
-          <p>If you didn't request this, you can ignore this email.</p>
-        </div>
-      `,
-    });
-
-    if (mailErr) {
-      return NextResponse.json({ error: mailErr.message }, { status: 500 });
+    if (new Date(session.expires_at).getTime() < Date.now()) {
+      return NextResponse.json({ error: "Reset session expired" }, { status: 400 });
     }
+
+    const { data: usersData, error: listErr } = await supabaseAdmin.auth.admin.listUsers();
+    if (listErr) return NextResponse.json({ error: listErr.message }, { status: 500 });
+
+    const user = usersData.users.find((u) => u.email?.toLowerCase() === session.email.toLowerCase());
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+    const { error: upErr } = await supabaseAdmin.auth.admin.updateUserById(user.id, { password });
+    if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
+
+    await supabaseAdmin.from("password_reset_sessions").delete().eq("token", cleanToken);
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {

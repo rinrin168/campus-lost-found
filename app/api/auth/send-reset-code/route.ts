@@ -3,12 +3,13 @@ import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import { Resend } from "resend";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Use fallback values during build, real values at runtime
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-key";
+const resendKey = process.env.RESEND_API_KEY || "re_placeholder";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+const resend = new Resend(resendKey);
 
 function random6Digit() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -16,6 +17,17 @@ function random6Digit() {
 
 export async function POST(req: Request) {
   try {
+    // Check if we have real credentials at runtime
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || 
+        !process.env.SUPABASE_SERVICE_ROLE_KEY ||
+        !process.env.RESEND_API_KEY ||
+        !process.env.EMAIL_FROM) {
+      return NextResponse.json(
+        { error: "Service configuration error" }, 
+        { status: 503 }
+      );
+    }
+
     const { email } = await req.json();
 
     if (!email || typeof email !== "string" || !email.includes("@")) {
@@ -25,7 +37,7 @@ export async function POST(req: Request) {
     const cleanEmail = email.toLowerCase().trim();
     const code = random6Digit();
     const code_hash = await bcrypt.hash(code, 10);
-    const expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 min
+    const expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
     const { error: dbErr } = await supabaseAdmin
       .from("password_reset_codes")
@@ -52,7 +64,7 @@ export async function POST(req: Request) {
           <p>Your verification code is:</p>
           <div style="font-size:28px;font-weight:700;letter-spacing:4px">${code}</div>
           <p>This code expires in <b>10 minutes</b>.</p>
-          <p>If you didn’t request this, you can ignore this email.</p>
+          <p>If you didn't request this, you can ignore this email.</p>
         </div>
       `,
     });
